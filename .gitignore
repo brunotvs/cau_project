@@ -15,3 +15,6 @@ wheels/
 
 # output
 output/
+
+#topodata
+.topodata/
