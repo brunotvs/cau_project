@@ -114,7 +114,7 @@ Map.add_layer(
 
 
 num_directions = 16
-num_elevations = 16
+num_elevations = 8
 directions = ee.List.sequence(0, num_directions - 1).map(
     lambda value: ee.Number(value).multiply(360 / num_directions)
 )
@@ -154,6 +154,7 @@ svf = (
         )
     )
     .sum()
+    .clip(region)
     .divide(total_size)
 )
 
