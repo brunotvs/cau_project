@@ -1,6 +1,6 @@
 [project]
 authors = [{ name = "Bruno Thiago", email = "brunothiagorvs@gmail.com" }]
-dependencies = ["rvt-py>=2.2.3,<3"]
+dependencies = ["rvt-py>=2.2.3,<3", "cartoee>=0.0.4,<0.0.5"]
 name = "cau_project"
 requires-python = ">= 3.11"
 version = "0.1.0"
@@ -25,3 +25,4 @@ gdal = ">=3.13.1,<4"
 geemap = "0.36.*"
 legacy-cgi = ">=2.6.4,<3"
 google-cloud-storage = ">=3.13.0,<4"
+cartopy = ">=0.25.0,<0.26"
