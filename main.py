@@ -175,4 +175,25 @@ Map.add_layer(
     name="SVF",
 )
 
+ndvi: ee.Image = (
+    ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+    .filterBounds(region)
+    .filterMetadata("CLOUDY_PIXEL_PERCENTAGE", "less_than", 20)
+    .filterDate("2025-01-01", "2025-12-31")
+    .mosaic()
+    .clip(region)
+    .normalizedDifference(["B8", "B4"])
+)
+
+
+Map.add_layer(
+    ee_object=ndvi,
+    vis_params={
+        "min": -1,
+        "max": 1,
+        "palette": ["blue", "blue", "red", "yellow", "green"],
+    },
+    name="NDVI",
+)
+
 Map.to_streamlit(height=600)
