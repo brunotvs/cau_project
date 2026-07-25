@@ -9,7 +9,7 @@ st.title("Interactive Earth Engine Dashboard")
 ee.Initialize(project="earth-cau")
 
 
-Map = geemap.Map()
+Map = geemap.Map(basemap="HYBRID")
 
 region = (
     ee.FeatureCollection("FAO/GAUL/2015/level2")

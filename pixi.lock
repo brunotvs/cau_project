@@ -7812,7 +7812,7 @@ packages:
   name: cau-project
   requires_dist:
   - rvt-py>=2.2.3,<3
-  - cartoee
+  - cartoee>=0.0.4,<0.0.5
   requires_python: '>=3.11'
 - pypi: https://files.pythonhosted.org/packages/0b/f7/85273299ab57117850cc0a936c64151171fac4da49bc6fba0dad984a7c5f/affine-2.4.0-py3-none-any.whl
   name: affine
