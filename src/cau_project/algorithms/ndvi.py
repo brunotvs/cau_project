@@ -35,13 +35,3 @@ def _builder(
 
 
 ndvi = _builder
-
-# Map.add_layer(
-#     ee_object=ndvi,
-#     vis_params={
-#         "min": -1,
-#         "max": 1,
-#         "palette": ["blue", "blue", "red", "yellow", "green"],
-#     },
-#     name="NDVI",
-# )

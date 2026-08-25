@@ -42,27 +42,3 @@ def _builder(
 
 
 building_heights = _builder
-
-
-# height_extrema = heights.reduceRegion(
-#     reducer=ee.Reducer.percentile([0, 100]).setOutputs(["min", "max"]),
-#     geometry=region.geometry(),
-#     scale=30,
-#     maxPixels=int(1e9),
-# )
-#
-# Map.add_layer(
-#     ee_object=heights,
-#     vis_params={
-#         "min": 0,
-#         "max": height_extrema.get("building_height_max"),
-#         "palette": [
-#             "#000080",
-#             "#0000FF",
-#             "#00FFFF",
-#             "#FFFF00",
-#             "#FF0000",
-#         ],
-#     },
-#     name="Building Heights (m)",
-# )

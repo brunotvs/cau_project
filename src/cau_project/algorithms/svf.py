@@ -76,20 +76,3 @@ def _builder(
 
 
 svf = _builder
-
-# svf_extrema = svf.reduceRegion(
-#     reducer=ee.Reducer.minMax(),
-#     geometry=region.geometry(),
-#     scale=30,
-#     maxPixels=int(1e9),
-#     tileScale=4,
-# )
-#
-# Map.add_layer(
-#     ee_object=svf,
-#     vis_params={
-#         "min": svf_extrema.get("shadow_min"),
-#         "max": svf_extrema.get("shadow_max"),
-#     },
-#     name="SVF",
-# )
