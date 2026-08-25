@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, NotRequired, TypedDict
+from typing import Any, NotRequired, Required, TypedDict
 
 import ee
 import geemap
@@ -23,7 +23,6 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
             parallelScale=scale,
         )
 
-        # Extract the computed values for all requested bands
         mins = [
             stats.select(f"{b}_min")
             .reduceRegion(
@@ -57,7 +56,6 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
 def percentile_min_max(
     region: ee.Geometry, p_min: int = 2, p_max: int = 98, scale: int = 1
 ) -> MinMaxStrategy:
-    """Strategy: Computes percentiles to stretch the image while ignoring outliers."""
 
     def strategy(img: ee.ImageCollection, bands: list[str]) -> dict[str, Any]:
         stats = img.select(bands).reduce(
@@ -96,10 +94,10 @@ def percentile_min_max(
     return strategy
 
 
-class BaseLayerConfig(TypedDict):
-    min_max_strategy: MinMaxStrategy
-    opacity: NotRequired[float]
-    name: NotRequired[str]
+class BaseLayerConfig(TypedDict, total=False):
+    min_max_strategy: Required[MinMaxStrategy]
+    opacity: float
+    name: str
 
 
 class MultiBandLayerConfig(BaseLayerConfig):
@@ -117,7 +115,7 @@ type LayerConfig = MultiBandLayerConfig | SingleBandLayerConfig
 def add_layer_to_map(layer_config: LayerConfig):
     """The Context: Executes the strategy and adds the layer to the map."""
 
-    min_max_strategy = layer_config.get("min_max_strategy")
+    min_max_strategy = layer_config.get("min_max_strategy", None)
     bands = layer_config.get("bands", [layer_config.get("band")])
     palette = layer_config.get("palette")
     layer_name = layer_config.get("name", f"Layer ({', '.join(bands)})")
@@ -127,7 +125,8 @@ def add_layer_to_map(layer_config: LayerConfig):
         min_max_params = min_max_strategy(img, bands)
 
         vis_params = {"bands": bands, **min_max_params}
-        if palette:
+
+        if palette is not None:
             vis_params["palette"] = palette
 
         map_obj.addLayer(
