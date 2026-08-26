@@ -18,6 +18,11 @@ region = (
     .filter(ee.Filter.eq("ADM2_NAME", "Rio Grande Da Serra"))
 )
 
+# region = ee.FeatureCollection(
+#     [ee.Geometry.Point([-46.398372, -23.752964]).buffer(150).bounds()]
+#     # [ee.Geometry.Point([-46.64488467700909, -23.641405219380577]).buffer(150).bounds()]
+# )
+
 Map.add_layer(
     ee_object=region.style(fillColor="0000", color="000F", width=5.0),
     vis_params={},
@@ -31,56 +36,56 @@ Map.center_object(region)
     ee.ImageCollection([ee.Image(1).clip(region.geometry())])
     .filterBounds(region)
     .map(cau_algorithms.dem())
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "dem",
-    #             "min_max_strategy": cau_map.percentile_min_max(region.geometry()),
-    #             "palette": [
-    #                 "#0000FF",
-    #                 "#000080",
-    #                 "#00FFFF",
-    #                 "#FFFF00",
-    #                 "#FF0000",
-    #             ],
-    #         }
-    #     ),
-    #     Map,
-    # )
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "dem",
+                "min_max_strategy": cau_map.percentile_min_max(region.geometry()),
+                "palette": [
+                    "#0000FF",
+                    "#000080",
+                    "#00FFFF",
+                    "#FFFF00",
+                    "#FF0000",
+                ],
+            }
+        ),
+        Map,
+    )
     .map(cau_algorithms.building_heights())
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "bh",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": [
-    #                 "#000080",
-    #                 "#0000FF",
-    #                 "#00FFFF",
-    #                 "#FFFF00",
-    #                 "#FF0000",
-    #             ],
-    #         }
-    #     ),
-    #     Map,
-    # )
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "bh",
+                "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
+                "palette": [
+                    "#000080",
+                    "#0000FF",
+                    "#00FFFF",
+                    "#FFFF00",
+                    "#FF0000",
+                ],
+            }
+        ),
+        Map,
+    )
     .map(cau_algorithms.dsm())
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "dsm",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": [
-    #                 "#000080",
-    #                 "#0000FF",
-    #                 "#00FFFF",
-    #                 "#FFFF00",
-    #                 "#FF0000",
-    #             ],
-    #         }
-    #     ),
-    #     Map,
-    # )
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "dsm",
+                "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
+                "palette": [
+                    "#000080",
+                    "#0000FF",
+                    "#00FFFF",
+                    "#FFFF00",
+                    "#FF0000",
+                ],
+            }
+        ),
+        Map,
+    )
     .map(
         cau_algorithms.svf(
             {"dsm_band": "dsm", "num_directions": 64, "num_elevations": 64 // 4}
@@ -91,6 +96,43 @@ Map.center_object(region)
             {
                 "band": "svf",
                 "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
+            }
+        ),
+        Map,
+    )
+    .map(cau_algorithms.albedo())
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "albedo",
+                "min_max_strategy": cau_map.percentile_min_max(region.geometry()),
+            }
+        ),
+        Map,
+    )
+    .map(cau_algorithms.ndvi())
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "ndvi",
+                "min_max_strategy": cau_map.arbitrary_min_max(-1, 1),
+                "palette": ["purple", "blue", "red", "yellow", "green"],
+            }
+        ),
+        Map,
+    )
+    .map(cau_algorithms.ruggedness({"dem_band": "dsm"}))
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "ruggedness",
+                "min_max_strategy": cau_map.percentile_min_max(region.geometry()),
+                "palette": [
+                    "blue",
+                    "green",
+                    "yellow",
+                    "red",
+                ],
             }
         ),
         Map,
