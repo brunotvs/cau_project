@@ -1,6 +1,5 @@
 import ee
 
-
 from cau_project.algorithms.config import BaseConfig
 
 
@@ -22,9 +21,9 @@ def _builder(
 
     # Riley et al., 1999
     def ruggedness(img: ee.Image = empty_image):
-        kernel = ee.Kernel.square(radius=1, units="pixels")
+        kernel = ee.Kernel.square(radius=45, units="meters")
 
-        dem = img.select(dem_band)
+        dem: ee.Image = img.select(dem_band)
         sum_dem = dem.reduceNeighborhood(reducer=ee.Reducer.sum(), kernel=kernel)
 
         sum_dem_sq = dem.pow(2).reduceNeighborhood(
