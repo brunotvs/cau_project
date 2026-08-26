@@ -1,7 +1,7 @@
-import ee
 import datetime
-
 from typing import Any
+
+import ee
 
 from cau_project.algorithms.config import BaseConfig
 

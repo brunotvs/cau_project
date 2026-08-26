@@ -21,8 +21,8 @@ def _builder(
         dem = (
             ee.Image("USGS/SRTMGL1_003")
             .convolve(ee.Kernel.gaussian(radius=1.5, sigma=1, units="pixels"))
-            .rename(output_band)
             .resample("bicubic")
+            .rename(output_band)
         )
 
         return img.addBands(dem)
