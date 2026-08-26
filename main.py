@@ -128,10 +128,34 @@ Map.center_object(region)
                 "band": "ruggedness",
                 "min_max_strategy": cau_map.percentile_min_max(region.geometry()),
                 "palette": [
+                    "purple",
                     "blue",
                     "green",
                     "yellow",
                     "red",
+                    "black",
+                ],
+            }
+        ),
+        Map,
+    )
+    .map(cau_algorithms.lst())
+    .aside(
+        cau_map.add_layer_to_map(
+            {
+                "band": "lst",
+                "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
+                "palette": [
+                    "#000004",
+                    "#1b0c41",
+                    "#4a0c6b",
+                    "#781c6d",
+                    "#a52c60",
+                    "#cf4446",
+                    "#ed6925",
+                    "#fb9b06",
+                    "#f7d13c",
+                    "#fcffa4",
                 ],
             }
         ),
