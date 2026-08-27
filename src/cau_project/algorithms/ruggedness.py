@@ -1,10 +1,14 @@
+from typing import Literal
+
 import ee
 
 from cau_project.algorithms.config import BaseConfig
 
 
 class RuggednessConfig(BaseConfig, total=False):
-    dem_band: str
+    height_band: str
+    radius: int
+    radius_units: Literal["meters", "pixels"]
 
 
 type BuilderConfig = RuggednessConfig
@@ -15,28 +19,30 @@ def _builder(
 ):
     config: BuilderConfig = user_config or {}
     output_band = config.get("output_band", "ruggedness")
-    dem_band = config.get("dem_band", "dem")
+    height_band = config.get("height_band", "dem")
+    radius = config.get("radius", 1)
+    radius_units = config.get("radius_units", "pixels")
 
     empty_image = ee.Image()
 
     # Riley et al., 1999
     def ruggedness(img: ee.Image = empty_image):
-        kernel = ee.Kernel.square(radius=45, units="meters")
+        kernel = ee.Kernel.square(radius=radius, units=radius_units)
 
-        dem: ee.Image = img.select(dem_band)
-        sum_dem = dem.reduceNeighborhood(reducer=ee.Reducer.sum(), kernel=kernel)
+        heights: ee.Image = img.select(height_band)
+        sum_dem = heights.reduceNeighborhood(reducer=ee.Reducer.sum(), kernel=kernel)
 
-        sum_dem_sq = dem.pow(2).reduceNeighborhood(
+        sum_dem_sq = heights.pow(2).reduceNeighborhood(
             reducer=ee.Reducer.sum(), kernel=kernel
         )
 
-        valid_pixel_count = dem.mask().reduceNeighborhood(
+        valid_pixel_count = heights.mask().reduceNeighborhood(
             reducer=ee.Reducer.sum(), kernel=kernel
         )
 
         rugg = (
-            sum_dem_sq.subtract(dem.multiply(sum_dem).multiply(2))
-            .add(dem.pow(2).multiply(valid_pixel_count))
+            sum_dem_sq.subtract(heights.multiply(sum_dem).multiply(2))
+            .add(heights.pow(2).multiply(valid_pixel_count))
             .max(0)
             .sqrt()
             .rename(output_band)
