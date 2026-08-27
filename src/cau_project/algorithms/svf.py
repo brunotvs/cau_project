@@ -11,7 +11,6 @@ class SkyViewFactorConfig(BaseConfig, total=False):
     num_elevations: int
 
 
-default_config: SkyViewFactorConfig = {"num_directions": 16, "num_elevations": 8}
 type BuilderConfig = SkyViewFactorConfig
 
 
