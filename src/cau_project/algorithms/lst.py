@@ -1,6 +1,5 @@
 import datetime
-from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 import ee
 
@@ -12,9 +11,7 @@ type DateRange = tuple[
 ]
 
 
-class LSTUnit(StrEnum):
-    CELSIUS = "celsius"
-    KELVIN = "kelvin"
+type LSTUnit = Literal["celsius", "kelvin"]
 
 
 class LSTConfig(BaseConfig, total=False):
@@ -31,7 +28,7 @@ def _builder(
 ):
     config: BuilderConfig = user_config or {}
     output_band = config.get("output_band", "lst")
-    unit = config.get("unit", LSTUnit.CELSIUS)
+    unit = config.get("unit", "celsius")
 
     date_range: DateRange = config.get(
         "date_range", (0, datetime.datetime.now(datetime.UTC))
@@ -51,7 +48,7 @@ def _builder(
     def scale_temperature_units(image: ee.Image) -> ee.Image:
         lst_k = image.select("ST_B10").multiply(0.00341802).add(149.0)
 
-        lst = lst_k.subtract(273.15) if unit == LSTUnit.CELSIUS else lst_k
+        lst = lst_k.subtract(273.15) if unit == "celsius" else lst_k
 
         return lst
 
