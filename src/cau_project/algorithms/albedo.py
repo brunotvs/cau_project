@@ -1,18 +1,10 @@
-import datetime
-from typing import Any
-
 import ee
 
 from cau_project.algorithms.config import BaseConfig
 
-type DateRange = tuple[
-    datetime.datetime | ee.Date | int | str | Any,
-    datetime.datetime | ee.Date | int | str | Any,
-]
-
 
 class AlbedoConfig(BaseConfig, total=False):
-    date_range: DateRange
+    max_cloud_percentage: float
 
 
 type BuilderConfig = AlbedoConfig
@@ -22,41 +14,51 @@ def _builder(
     user_config: BuilderConfig | None = None,
 ):
     config: BuilderConfig = user_config or {}
-    output_band = config.get("output_band", "albedo")
-    date_range: DateRange = config.get(
-        "date_range", (0, datetime.datetime.now(datetime.UTC))
-    )
+    output_band: str = config.get("output_band", "albedo")
+    max_cloud_percentage: float = config.get("max_cloud_percentage", 20.0)
 
-    empty_image = ee.Image()
+    collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
 
-    def albedo(img: ee.Image = empty_image):
-        PIXEL_MAX = 10_000
-        albedo: ee.Image = (
-            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-            .filterMetadata("CLOUDY_PIXEL_PERCENTAGE", "less_than", 20)
-            .filterDate(*date_range)
-            .map(
-                lambda img: img.select(
-                    ["B4", "B2", "B8", "B11", "B12"],
-                ).unitScale(0, PIXEL_MAX)
-            )
-            .map(
-                lambda img: img.expression(
-                    # https://gis.stackexchange.com/questions/318690/performing-surface-albedo-calculation-using-landsat-7-and-google-earth-engine
-                    "((0.356 * blue) + (0.130 * red) + (0.373 * nir) + (0.085 * swir) + (0.072 * swir2) - 0.018) / 1.016",
-                    {
-                        "red": img.select("B4"),
-                        "blue": img.select("B2"),
-                        "nir": img.select("B8"),
-                        "swir": img.select("B11"),
-                        "swir2": img.select("B12"),
-                    },
-                )
-            )
+    def mask_s2_clouds(image: ee.Image) -> ee.Image:
+        qa = image.select("QA60")
+        cloud_bit_mask = 1 << 10
+        cirrus_bit_mask = 1 << 11
+
+        mask = (
+            qa.bitwiseAnd(cloud_bit_mask)
+            .eq(0)
+            .And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
+        )
+        return image.updateMask(mask)
+
+    def calculate_surface_albedo(image: ee.Image) -> ee.Image:
+        scaled = image.select(["B2", "B4", "B8", "B11", "B12"]).divide(10000)
+        albedo_expr = "((0.356 * blue) + (0.130 * red) + (0.373 * nir) + (0.085 * swir) + (0.072 * swir2) - 0.018) / 1.016"
+        return scaled.expression(
+            albedo_expr,
+            {
+                "blue": scaled.select("B2"),
+                "red": scaled.select("B4"),
+                "nir": scaled.select("B8"),
+                "swir": scaled.select("B11"),
+                "swir2": scaled.select("B12"),
+            },
+        ).rename("albedo")
+
+    def albedo(img: ee.Image) -> ee.Image:
+        img_date = img.date().getRange("year")
+
+        albedo_layer = (
+            collection.filterBounds(img.geometry())
+            .filterDate(img_date)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_percentage))
+            .map(mask_s2_clouds)
+            .map(calculate_surface_albedo)
             .median()
-        ).rename(output_band)
+            .rename(output_band)
+        )
 
-        return img.addBands(albedo)
+        return img.addBands(albedo_layer)
 
     return albedo
 

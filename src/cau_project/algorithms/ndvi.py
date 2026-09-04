@@ -1,18 +1,10 @@
-import datetime
-from typing import Any
-
 import ee
 
 from cau_project.algorithms.config import BaseConfig
 
-type DateRange = tuple[
-    datetime.datetime | ee.Date | int | str | Any,
-    datetime.datetime | ee.Date | int | str | Any,
-]
-
 
 class NDVIConfig(BaseConfig, total=False):
-    date_range: DateRange
+    max_cloud_percentage: float
 
 
 type BuilderConfig = NDVIConfig
@@ -22,24 +14,37 @@ def _builder(
     user_config: BuilderConfig | None = None,
 ):
     config: BuilderConfig = user_config or {}
-    output_band = config.get("output_band", "ndvi")
+    output_band: str = config.get("output_band", "ndvi")
+    max_cloud_percentage: float = config.get("max_cloud_percentage", 20.0)
 
-    date_range: DateRange = config.get(
-        "date_range", (0, datetime.datetime.now(datetime.UTC))
-    )
+    collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
 
-    empty_image = ee.Image()
+    def mask_s2_clouds(image: ee.Image) -> ee.Image:
+        qa = image.select("QA60")
 
-    def ndvi(img: ee.Image = empty_image):
-        ndvi: ee.Image = (
-            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-            .filterMetadata("CLOUDY_PIXEL_PERCENTAGE", "less_than", 20)
-            .filterDate(*date_range)
-            .mosaic()
+        cloud_bit_mask = 1 << 10
+        cirrus_bit_mask = 1 << 11
+
+        mask = (
+            qa.bitwiseAnd(cloud_bit_mask)
+            .eq(0)
+            .And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
+        )
+
+        return image.updateMask(mask)
+
+    def ndvi(img: ee.Image) -> ee.Image:
+        img_day = img.date().getRange("year")
+        ndvi_layer = (
+            collection.filterDate(img_day)
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_percentage))
+            .map(mask_s2_clouds)
+            .median()
             .normalizedDifference(["B8", "B4"])
-        ).rename(output_band)
+            .rename(output_band)
+        )
 
-        return img.addBands(ndvi)
+        return img.addBands(ndvi_layer)
 
     return ndvi
 

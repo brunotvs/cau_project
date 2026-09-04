@@ -15,18 +15,16 @@ def _builder(
     user_config: BuilderConfig | None = None,
 ):
     config: BuilderConfig = user_config or {}
-    output_band = config.get("output_band", "dsm")
-    dem_band = config.get("dem_band", "dem")
-    bh_band = config.get("bh_band", "bh")
+    output_band: str = config.get("output_band", "dsm")
+    dem_band: str = config.get("dem_band", "dem")
+    bh_band: str = config.get("bh_band", "bh")
 
-    empty_image = ee.Image()
+    def dsm(img: ee.Image) -> ee.Image:
+        dem = img.select(dem_band)
+        bh = img.select(bh_band).unmask(0)
 
-    def dsm(img: ee.Image = empty_image):
-        dsm: ee.Image = img.expression(f'b("{dem_band}") + b("{bh_band}")').rename(
-            output_band
-        )
-
-        return img.addBands(dsm)
+        dsm_img = dem.add(bh).rename(output_band)
+        return img.addBands(dsm_img)
 
     return dsm
 

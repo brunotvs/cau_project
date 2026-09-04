@@ -1,70 +1,62 @@
-import datetime
-from typing import Any, Literal
+from typing import Literal
 
 import ee
 
 from cau_project.algorithms.config import BaseConfig
 
-type DateRange = tuple[
-    datetime.datetime | ee.Date | int | str | Any,
-    datetime.datetime | ee.Date | int | str | Any,
-]
-
-
 type LSTUnit = Literal["celsius", "kelvin"]
 
 
 class LSTConfig(BaseConfig, total=False):
-    date_range: DateRange
-    output_band: str
     unit: LSTUnit
 
 
 type BuilderConfig = LSTConfig
 
 
-def _builder(
-    user_config: BuilderConfig | None = None,
-):
+def _builder(user_config: BuilderConfig | None = None):
     config: BuilderConfig = user_config or {}
-    output_band = config.get("output_band", "lst")
-    unit = config.get("unit", "celsius")
+    output_band: str = config.get("output_band", "lst")
+    unit: LSTUnit = config.get("unit", "celsius")
 
-    date_range: DateRange = config.get(
-        "date_range", (0, datetime.datetime.now(datetime.UTC))
-    )
+    l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+    l9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
+    landsat_collection = l8.merge(l9)
 
-    empty_image = ee.Image()
-
-    def mask_clouds(image: ee.Image) -> ee.Image:
+    def mask_clouds_and_shadows(image: ee.Image) -> ee.Image:
         qa = image.select("QA_PIXEL")
-        cloud_shadow_mask = qa.bitwiseAnd(1 << 3).eq(0)
-        cloud_mask = qa.bitwiseAnd(1 << 5).eq(0)
+        dilated_cloud = qa.bitwiseAnd(1 << 1).eq(0)
         cirrus_mask = qa.bitwiseAnd(1 << 2).eq(0)
-        mask = cloud_shadow_mask.And(cloud_mask).And(cirrus_mask)
+        cloud_shadow_mask = qa.bitwiseAnd(1 << 3).eq(0)
+        snow_mask = qa.bitwiseAnd(1 << 4).eq(0)
+        cloud_mask = qa.bitwiseAnd(1 << 5).eq(0)
 
+        mask = (
+            dilated_cloud.And(cirrus_mask)
+            .And(cloud_shadow_mask)
+            .And(snow_mask)
+            .And(cloud_mask)
+        )
         return image.updateMask(mask)
 
-    def scale_temperature_units(image: ee.Image) -> ee.Image:
+    def scale_to_temperature(image: ee.Image) -> ee.Image:
         lst_k = image.select("ST_B10").multiply(0.00341802).add(149.0)
+        if unit == "celsius":
+            return lst_k.subtract(273.15)
+        return lst_k
 
-        lst = lst_k.subtract(273.15) if unit == "celsius" else lst_k
+    def lst(img: ee.Image) -> ee.Image:
+        img_day = img.date().getRange("year")
 
-        return lst
-
-    def lst(img: ee.Image = empty_image) -> ee.Image:
-        lst_composite: ee.Image = (
-            ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-            .filterDate(*date_range)
-            .map(mask_clouds)
-            .map(scale_temperature_units)
+        lst_image: ee.Image = (
+            landsat_collection.filterDate(img_day)
+            .map(mask_clouds_and_shadows)
+            .map(scale_to_temperature)
             .median()
             .rename(output_band)
-            # .convolve(ee.Kernel.gaussian(radius=1.5, sigma=1, units="pixels"))
-            # .resample("bicubic")
         )
 
-        return img.addBands(lst_composite)
+        return img.addBands(lst_image)
 
     return lst
 

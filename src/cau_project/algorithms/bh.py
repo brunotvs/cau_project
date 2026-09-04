@@ -1,18 +1,11 @@
-import datetime
-from typing import Any
-
 import ee
 
 from cau_project.algorithms.config import BaseConfig
 
-type DateRange = tuple[
-    datetime.datetime | ee.Date | int | str | Any,
-    datetime.datetime | ee.Date | int | str | Any,
-]
-
 
 class BuildingHeightsConfig(BaseConfig, total=False):
-    date_range: DateRange
+    min_presence: float
+    unmask_value: float | None
 
 
 type BuilderConfig = BuildingHeightsConfig
@@ -23,18 +16,28 @@ def _builder(
 ):
     config: BuilderConfig = user_config or {}
     output_band: str = config.get("output_band", "bh")
-    date_range: DateRange = config.get(
-        "date_range", (0, datetime.datetime.now(datetime.UTC))
-    )
-    empty_image = ee.Image()
+    min_presence: float = config.get("min_presence", 0.2)
+    unmask_value: float | None = config.get("unmask_value", None)
 
-    def building_heights(img: ee.Image = empty_image):
-        heights: ee.Image = (
+    def building_heights(img: ee.Image) -> ee.Image:
+        img_year = img.date().getRange("year")
+
+        mosaic: ee.Image = (
             ee.ImageCollection("GOOGLE/Research/open-buildings-temporal/v1")
-            .select("building_height")
-            .filterDate(*date_range)
+            .filterDate(img_year)
             .mosaic()
-        ).rename(output_band)
+        )
+
+        presence_mask = mosaic.select("building_presence").gte(min_presence)
+
+        heights = (
+            mosaic.select("building_height")
+            .updateMask(presence_mask)
+            .rename(output_band)
+        )
+
+        if unmask_value is not None:
+            heights = heights.unmask(unmask_value)
 
         return img.addBands(heights)
 

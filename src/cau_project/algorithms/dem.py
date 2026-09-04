@@ -20,7 +20,7 @@ def _builder(
     def dem(img: ee.Image = empty_image):
         dem = (
             ee.Image("USGS/SRTMGL1_003")
-            .convolve(ee.Kernel.gaussian(radius=1.5, sigma=1, units="pixels"))
+            .convolve(ee.Kernel.gaussian(radius=2, sigma=1, units="pixels"))
             .resample("bicubic")
             .rename(output_band)
         )

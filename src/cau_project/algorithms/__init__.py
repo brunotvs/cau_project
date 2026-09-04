@@ -6,6 +6,7 @@ from .dsm import dsm
 from .lst import lst
 from .ndvi import ndvi
 from .ruggedness import ruggedness
+from .shadow import shadow
 from .svf import svf
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "lst",
     "ndvi",
     "ruggedness",
+    "shadow",
     "svf",
 ]
