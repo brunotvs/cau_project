@@ -30,25 +30,19 @@ def _builder(
     def compactness(img: ee.Image) -> ee.Image:
         heights: ee.Image = img.select(height_band).unmask(0)
 
-        # 1. Building footprints and horizontal surface area
         is_building = heights.gt(0)
         pixel_area = ee.Image.pixelArea().multiply(is_building)
 
-        # 2. Local volume: sum(height * pixel_area)
         pixel_volume = heights.multiply(pixel_area)
 
-        # 3. Façade / vertical surface area derived from slope gradients
-        # Gradient magnitudes represent height difference per horizontal unit
         gradients = heights.gradient()
         grad_x = gradients.select("x")
         grad_y = gradients.select("y")
         facade_area_density = grad_x.hypot(grad_y).multiply(is_building)
         facade_area = facade_area_density.multiply(scale)
 
-        # 4. Total exterior envelope area (roofs + exterior vertical facades)
         total_surface_area = pixel_area.add(facade_area)
 
-        # 5. Aggregate metrics within a local neighborhood kernel
         kernel = ee.Kernel.circle(radius=radius, units=radius_units)
 
         neighborhood_volume = pixel_volume.reduceNeighborhood(
@@ -61,8 +55,6 @@ def _builder(
             kernel=kernel,
         )
 
-        # 6. Volumetric Compactness: (36 * pi * Volume^2)^(1/3) / Total_Surface_Area
-        # Spherical normalized isoperimetric ratio (ranges between 0 and 1)
         factor = 36.0 * math.pi
         compactness = (
             neighborhood_volume.pow(2)

@@ -4,11 +4,11 @@ from typing import Any, NotRequired, Required, TypedDict
 import ee
 import geemap
 
-MinMaxStrategy = Callable[[ee.ImageCollection, list[str]], dict[str, Any]]
+MinMaxStrategy = Callable[[ee.Image, list[str]], dict[str, Any]]
 
 
 def arbitrary_min_max(min_val: float, max_val: float) -> MinMaxStrategy:
-    def strategy(img: ee.ImageCollection, bands: list[str]) -> dict[str, Any]:
+    def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
         return {"min": min_val, "max": max_val}
 
     return strategy
@@ -17,14 +17,9 @@ def arbitrary_min_max(min_val: float, max_val: float) -> MinMaxStrategy:
 def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
     """Strategy: Computes the absolute min and max of the image using EE reducers."""
 
-    def strategy(img: ee.ImageCollection, bands: list[str]) -> dict[str, Any]:
-        stats = img.select(bands).reduce(
-            reducer=ee.Reducer.minMax(),
-            parallelScale=scale,
-        )
-
+    def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
         mins = [
-            stats.select(f"{b}_min")
+            img.select(b)
             .reduceRegion(
                 reducer=ee.Reducer.min(),
                 geometry=region,
@@ -32,11 +27,11 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
                 scale=30,
                 tileScale=4,
             )
-            .get(f"{b}_min")
+            .get(b)
             for b in bands
         ]
         maxes = [
-            stats.select(f"{b}_max")
+            img.select(b)
             .reduceRegion(
                 reducer=ee.Reducer.max(),
                 geometry=region,
@@ -44,7 +39,7 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
                 scale=30,
                 tileScale=4,
             )
-            .get(f"{b}_max")
+            .get(b)
             for b in bands
         ]
 
@@ -57,14 +52,9 @@ def percentile_min_max(
     region: ee.Geometry, p_min: int = 2, p_max: int = 98, scale: int = 1
 ) -> MinMaxStrategy:
 
-    def strategy(img: ee.ImageCollection, bands: list[str]) -> dict[str, Any]:
-        stats = img.select(bands).reduce(
-            reducer=ee.Reducer.percentile([p_min, p_max]),
-            parallelScale=scale,
-        )
-
+    def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
         mins = [
-            stats.select(f"{b}_p{p_min}")
+            img.select(b)
             .reduceRegion(
                 reducer=ee.Reducer.min(),
                 geometry=region,
@@ -72,12 +62,12 @@ def percentile_min_max(
                 scale=30,
                 tileScale=4,
             )
-            .get(f"{b}_p{p_min}")
+            .get(b)
             for b in bands
         ]
 
         maxes = [
-            stats.select(f"{b}_p{p_max}")
+            img.select(b)
             .reduceRegion(
                 reducer=ee.Reducer.max(),
                 geometry=region,
@@ -85,7 +75,7 @@ def percentile_min_max(
                 scale=30,
                 tileScale=4,
             )
-            .get(f"{b}_p{p_max}")
+            .get(b)
             for b in bands
         ]
 
@@ -120,7 +110,7 @@ def add_layer_to_map(layer_config: LayerConfig):
     palette = layer_config.get("palette")
     layer_name = layer_config.get("name", f"Layer ({', '.join(bands)})")
 
-    def callback(img: ee.ImageCollection, map_obj: geemap.Map):
+    def callback(img: ee.Image, map_obj: geemap.Map):
 
         min_max_params = min_max_strategy(img, bands)
 
@@ -129,8 +119,6 @@ def add_layer_to_map(layer_config: LayerConfig):
         if palette is not None:
             vis_params["palette"] = palette
 
-        map_obj.addLayer(
-            img.map(lambda i: i.clip(img.geometry())), vis_params, layer_name
-        )
+        map_obj.addLayer(img, vis_params, layer_name)
 
     return callback
