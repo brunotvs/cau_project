@@ -1,3 +1,6 @@
+import datetime
+import zoneinfo
+
 import ee
 import geemap.foliumap as geemap
 import streamlit as st
@@ -18,6 +21,10 @@ region = (
     .filter(ee.Filter.eq("ADM2_NAME", "Rio Grande Da Serra"))
 )
 
+region = ee.FeatureCollection(
+    ee.Geometry.Point([-46.39906192606612, -23.753554443082365]).buffer(50)
+)
+
 Map.add_layer(
     ee_object=region.style(fillColor="0000", color="000F", width=5.0),
     vis_params={},
@@ -26,13 +33,15 @@ Map.add_layer(
 
 Map.center_object(region)
 
-start_date = ee.Date("2016-01-01T12:00:00-03:00")
-end_date = ee.Date("2024-01-01T12:00:00-03:00")
+start_date = ee.Date("2023-01-01T12:00:00-03:00")
+end_date = ee.Date("2023-01-01T13:00:00-03:00")
 
-step_unit = "day"
-n_dates = end_date.difference(start_date, step_unit)
+
+step_unit = "hour"
+step_size = 1
+n_dates = end_date.difference(start_date, step_unit).divide(step_size).floor()
 dates_list = ee.List.sequence(0, n_dates.subtract(1)).map(
-    lambda d: start_date.advance(ee.Number(d), step_unit)
+    lambda d: start_date.advance(ee.Number(d).multiply(step_size), step_unit)
 )
 
 
@@ -42,13 +51,13 @@ def create_empty_image(current_date):
         ee.Image.constant(0).set(
             {
                 "system:time_start": current_date.millis(),
-                "date_formatted": current_date.format("YYYY-MM-dd"),
             }
         )
     )
 
 
-dir = 16
+num_directions = 64
+num_elevations = num_directions // 4
 (
     ee.ImageCollection(dates_list.map(create_empty_image))
     .filterBounds(region)
@@ -57,7 +66,11 @@ dir = 16
     .map(cau_algorithms.dsm())
     .map(
         cau_algorithms.svf(
-            {"dsm_band": "dsm", "num_directions": dir, "num_elevations": dir // 4}
+            {
+                "dsm_band": "dsm",
+                "num_directions": num_directions,
+                "num_elevations": num_elevations,
+            }
         )
     )
     .map(cau_algorithms.albedo())
@@ -69,22 +82,29 @@ dir = 16
     )
     .map(cau_algorithms.lst())
     .map(cau_algorithms.compactness({"radius": 100, "radius_units": "meters"}))
-    # .map(cau_algorithms.shadow({"dem_band": "dsm", "neighborhood_size": 200}))
     .map(lambda img: img.clip(region))
     .aside(
         lambda col: [
             (
                 ee.ImageCollection(col)
-                .filterDate(ee.Date("2023-03-20").getRange("day"))
+                .filterDate(ee.Date(date["value"]))
                 .first()
                 .aside(
                     cau_map.add_layer_to_map(
                         {
-                            "band": "svf",
-                            "min_max_strategy": cau_map.absolute_min_max(
-                                region.geometry()
-                            ),
-                            "name": "svf",
+                            "band": "shadow",
+                            "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
+                            "name": f"shadow at {
+                                datetime.datetime(
+                                    1970,
+                                    1,
+                                    1,
+                                    tzinfo=zoneinfo.ZoneInfo('America/Sao_Paulo'),
+                                )
+                                + datetime.timedelta(
+                                    milliseconds=date['value'], hours=-3
+                                )
+                            }",
                             # "palette": [
                             # "purple",
                             # "red",
@@ -120,9 +140,7 @@ dir = 16
                     Map,
                 )
             )
-            for year in [
-                2023
-            ]  # dates_list.map(lambda d: ee.Date(d).get("year")).getInfo() or []
+            for i, date in enumerate(dates_list.getInfo() or [])
         ]
     )
 )

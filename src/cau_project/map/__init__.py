@@ -24,7 +24,7 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
                 reducer=ee.Reducer.min(),
                 geometry=region,
                 bestEffort=True,
-                scale=30,
+                scale=scale,
                 tileScale=4,
             )
             .get(b)
