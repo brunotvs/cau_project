@@ -33,12 +33,12 @@ Map.add_layer(
 
 Map.center_object(region)
 
-start_date = ee.Date("2023-01-01T12:00:00-03:00")
-end_date = ee.Date("2023-01-01T13:00:00-03:00")
+start_date = ee.Date("2023-01-01T05:00:00-03:00")
+end_date = ee.Date("2023-01-01T20:00:00-03:00")
 
 
-step_unit = "hour"
-step_size = 1
+step_unit = "minute"
+step_size = 15
 n_dates = end_date.difference(start_date, step_unit).divide(step_size).floor()
 dates_list = ee.List.sequence(0, n_dates.subtract(1)).map(
     lambda d: start_date.advance(ee.Number(d).multiply(step_size), step_unit)
@@ -56,7 +56,7 @@ def create_empty_image(current_date):
     )
 
 
-num_directions = 64
+num_directions = 2**6
 num_elevations = num_directions // 4
 (
     ee.ImageCollection(dates_list.map(create_empty_image))
@@ -84,65 +84,76 @@ num_elevations = num_directions // 4
     .map(cau_algorithms.compactness({"radius": 100, "radius_units": "meters"}))
     .map(lambda img: img.clip(region))
     .aside(
-        lambda col: [
-            (
-                ee.ImageCollection(col)
-                .filterDate(ee.Date(date["value"]))
-                .first()
-                .aside(
-                    cau_map.add_layer_to_map(
-                        {
-                            "band": "shadow",
-                            "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
-                            "name": f"shadow at {
-                                datetime.datetime(
-                                    1970,
-                                    1,
-                                    1,
-                                    tzinfo=zoneinfo.ZoneInfo('America/Sao_Paulo'),
-                                )
-                                + datetime.timedelta(
-                                    milliseconds=date['value'], hours=-3
-                                )
-                            }",
-                            # "palette": [
-                            # "purple",
-                            # "red",
-                            # "yellow",
-                            # "green",
-                            # "#040274",
-                            # "#040281",
-                            # "#0502a3",
-                            # "#0502b8",
-                            # "#0502ce",
-                            # "#0502e6",
-                            # "#0602ff",
-                            # "#235cb1",
-                            # "#307ef3",
-                            # "#269db1",
-                            # "#30c8e2",
-                            # "#32d3ef",
-                            # "#3be285",
-                            # "#3ff38f",
-                            # "#86e26f",
-                            # "#3ae237",
-                            # "#b4e247",
-                            # "#efff2a",
-                            # "#ffc414",
-                            # "#ff7f0e",
-                            # "#ff4f00",
-                            # "#ff0000",
-                            # "#de0101",
-                            # "#b20101",
-                            # ],
-                        }
-                    ),
-                    Map,
-                )
-            )
-            for i, date in enumerate(dates_list.getInfo() or [])
-        ]
+        lambda col: geemap.ee_export_image_to_drive(
+            ee.ImageCollection(col)
+            .first()
+            .visualize(bands="svf", min=0, max=1, forceRgbOutput=True),
+            description="svf",
+            folder="export",
+            dimensions=720,
+            region=region.geometry(),
+        )
     )
+    # .aside(
+    #     lambda col: [
+    #         (
+    #             ee.ImageCollection(col)
+    #             .filterDate(ee.Date(date["value"]))
+    #             .first()
+    #             .aside(
+    #                 cau_map.add_layer_to_map(
+    #                     {
+    #                         "band": "shadow",
+    #                         "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
+    #                         "name": f"shadow at {
+    #                             datetime.datetime(
+    #                                 1970,
+    #                                 1,
+    #                                 1,
+    #                                 tzinfo=zoneinfo.ZoneInfo('America/Sao_Paulo'),
+    #                             )
+    #                             + datetime.timedelta(
+    #                                 milliseconds=date['value'], hours=-3
+    #                             )
+    #                         }",
+    #                         # "palette": [
+    #                         # "purple",
+    #                         # "red",
+    #                         # "yellow",
+    #                         # "green",
+    #                         # "#040274",
+    #                         # "#040281",
+    #                         # "#0502a3",
+    #                         # "#0502b8",
+    #                         # "#0502ce",
+    #                         # "#0502e6",
+    #                         # "#0602ff",
+    #                         # "#235cb1",
+    #                         # "#307ef3",
+    #                         # "#269db1",
+    #                         # "#30c8e2",
+    #                         # "#32d3ef",
+    #                         # "#3be285",
+    #                         # "#3ff38f",
+    #                         # "#86e26f",
+    #                         # "#3ae237",
+    #                         # "#b4e247",
+    #                         # "#efff2a",
+    #                         # "#ffc414",
+    #                         # "#ff7f0e",
+    #                         # "#ff4f00",
+    #                         # "#ff0000",
+    #                         # "#de0101",
+    #                         # "#b20101",
+    #                         # ],
+    #                     }
+    #                 ),
+    #                 Map,
+    #             )
+    #         )
+    #         for i, date in enumerate(dates_list.getInfo() or [])
+    #     ]
+    # )
 )
 
 
