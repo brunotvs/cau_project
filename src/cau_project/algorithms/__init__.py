@@ -1,6 +1,8 @@
 from .albedo import albedo
-from .bh import building_heights
-from .compactness import compactness
+from .averaged_building_height import averaged_building_height
+from .building_coverage_ratio import building_coverage_ratio
+from .building_height import building_height
+from .building_volume_density import building_volume_density
 from .dem import dem
 from .dsm import dsm
 from .lst import lst
@@ -10,8 +12,10 @@ from .svf import svf
 
 __all__ = [
     "albedo",
-    "building_heights",
-    "compactness",
+    "averaged_building_height",
+    "building_coverage_ratio",
+    "building_height",
+    "building_volume_density",
     "dem",
     "dsm",
     "lst",

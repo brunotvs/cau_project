@@ -44,4 +44,4 @@ def _builder(
     return building_heights
 
 
-building_heights = _builder
+building_height = _builder

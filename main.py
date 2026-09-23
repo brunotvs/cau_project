@@ -1,13 +1,8 @@
-import datetime
-import zoneinfo
-
 import ee
 import geemap.foliumap as geemap
 import streamlit as st
 
 import cau_project.algorithms as cau_algorithms
-import cau_project.map as cau_map
-import cau_project.palletes as cau_palletes
 
 st.set_page_config(layout="wide")
 st.title("Interactive Earth Engine Dashboard")
@@ -20,10 +15,6 @@ region = (
     ee.FeatureCollection("FAO/GAUL/2015/level2")
     .filter(ee.Filter.eq("ADM1_NAME", "Sao Paulo"))
     .filter(ee.Filter.eq("ADM2_NAME", "Rio Grande Da Serra"))
-)
-
-region = ee.FeatureCollection(
-    ee.Geometry.Point([-46.39906192606612, -23.753554443082365]).buffer(50)
 )
 
 Map.add_layer(
@@ -63,7 +54,7 @@ num_elevations = num_directions // 4
     ee.ImageCollection(dates_list.map(create_empty_image))
     .filterBounds(region)
     .map(cau_algorithms.dem())
-    .map(cau_algorithms.building_heights())
+    .map(cau_algorithms.building_height())
     .map(cau_algorithms.dsm())
     .map(
         cau_algorithms.svf(
@@ -82,39 +73,10 @@ num_elevations = num_directions // 4
         )
     )
     .map(cau_algorithms.lst())
-    .map(cau_algorithms.compactness({"radius": 100, "radius_units": "meters"}))
+    .map(cau_algorithms.averaged_building_height())
+    .map(cau_algorithms.building_coverage_ratio())
+    .map(cau_algorithms.building_volume_density())
     .map(lambda img: img.clip(region))
-    .aside(
-        lambda col: [
-            (
-                ee.ImageCollection(col)
-                .filterDate(ee.Date(date["value"]))
-                .first()
-                .aside(
-                    cau_map.add_layer_to_map(
-                        {
-                            "band": "shadow",
-                            "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
-                            "name": f"shadow at {
-                                datetime.datetime(
-                                    1970,
-                                    1,
-                                    1,
-                                    tzinfo=zoneinfo.ZoneInfo('America/Sao_Paulo'),
-                                )
-                                + datetime.timedelta(
-                                    milliseconds=date['value'], hours=-3
-                                )
-                            }",
-                            "palette": cau_palletes.gray,
-                        }
-                    ),
-                    Map,
-                )
-            )
-            for i, date in enumerate(dates_list.getInfo() or [])
-        ]
-    )
 )
 
 
