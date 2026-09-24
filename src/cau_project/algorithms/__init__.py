@@ -5,6 +5,7 @@ from .building_height import building_height
 from .building_volume_density import building_volume_density
 from .dem import dem
 from .dsm import dsm
+from .insolation import insolation
 from .lst import lst
 from .ndvi import ndvi
 from .ruggedness import ruggedness
@@ -18,6 +19,7 @@ __all__ = [
     "building_volume_density",
     "dem",
     "dsm",
+    "insolation",
     "lst",
     "ndvi",
     "ruggedness",
