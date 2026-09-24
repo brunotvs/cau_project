@@ -135,6 +135,7 @@ num_elevations = num_directions // 4
             folder="export",
             framesPerSecond=30,
             dimensions=720,
+            maxFrames=1500,
             region=region.geometry(),
         )
     )
