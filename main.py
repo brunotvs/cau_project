@@ -47,7 +47,7 @@ ee.Initialize(project="earth-cau")
 Map = geemap.Map(basemap="HYBRID")
 
 region = (
-    ee.FeatureCollection("FAO/GAUL/2015/level2")
+    ee.FeatureCollection("FAO/GAUL/2025/level2")
     .filter(ee.Filter.eq("ADM1_NAME", "Sao Paulo"))
     .filter(ee.Filter.eq("ADM2_NAME", "Rio Grande Da Serra"))
 )
