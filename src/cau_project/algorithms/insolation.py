@@ -320,7 +320,8 @@ def sample_shadow(feat: ee.ComputedObject) -> ee.Image:
 class InsolationConfig(BaseConfig, total=False):
     shadow_band: str
     insolation_band: str
-    dsm_band: str
+    bh_band: str
+    dem_band: str
     angular_precision: float
     geometry: ee.Geometry
 
@@ -335,7 +336,8 @@ def _builder(
     shadow_band = config.get("shadow_band", "shadow")
     insolation_band = config.get("insolation_band", "insolation")
     angular_precision: float = config.get("angular_precision", 1)
-    dsm_band: str = config.get("dsm_band", "dsm")
+    bh_band: str = config.get("bh_band", "bh")
+    dem_band: str = config.get("dem_band", "dem")
 
     geometry: ee.Geometry = config.get("geometry", ee.Geometry.BBox(-180, -90, 180, 90))
 
@@ -354,32 +356,34 @@ def _builder(
     lats = ee.List.sequence(lat_min, lat_max, angular_precision)
 
     def insolation(img: ee.Image):
-        dsm = img.select(dsm_band)
+        building_heights = img.select(bh_band)
+        dem = img.select(dem_band)
 
         sun_geometry = lons.map(
             lambda lon: lats.map(lambda lat: solar_geometry_2(lat, lon, img.date()))
         ).flatten()
 
-        # shadow_collection = sun_geometry.map(
-        #     lambda f: ee.Feature(f).set("dsm", dsm)
-        # ).map(calculate_shadow)
-
         img = img.addBands(
             ee.ImageCollection(
                 sun_geometry.map(
-                    lambda entry: (
-                        ee.Feature(entry)
-                        .set("angular_precision", angular_precision)
-                        .set(
-                            "shadow_image",
-                            calculate_shadow(
-                                ee.Feature(ee.Feature(entry).set("dsm", dsm))
+                    lambda entry: ee.Feature(entry).set(
+                        {
+                            "angular_precision": angular_precision,
+                            "shadow_image": calculate_shadow(
+                                ee.Feature(
+                                    ee.Feature(entry).set(
+                                        "dem",
+                                        dem,
+                                        "building_heights",
+                                        building_heights,
+                                    )
+                                )
                             ),
-                        )
+                        }
                     )
                 ).map(sample_shadow)
             )
-            .first()
+            .mosaic()
             .unmask(0)
             .rename(shadow_band)
         )
