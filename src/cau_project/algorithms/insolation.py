@@ -1,11 +1,13 @@
 import math
+from typing import TypedDict
 
 import ee
 
-from .config import BaseConfig, calculate_shadow
+from .hill_shade import hillshade
+from .hill_shadow import hill_shadow
 
 
-def solar_geometry_2(lat: ee.Number, lon: ee.Number, date: ee.Date) -> ee.Feature:
+def solar_geometry(lat: ee.Number, lon: ee.Number, date: ee.Date) -> ee.Feature:
     date = ee.Date(date)
 
     julian_start = ee.Date("-4712-01-01").advance(-37.5, "day")
@@ -291,14 +293,14 @@ def solar_geometry_2(lat: ee.Number, lon: ee.Number, date: ee.Date) -> ee.Featur
     )
 
 
-def sample_shadow(feat: ee.ComputedObject) -> ee.Image:
-    feat = ee.Feature(feat)
-    lat = ee.Number(feat.get("latitude"))
-    lon = ee.Number(feat.get("longitude"))
-    precision = ee.Number(feat.get("angular_precision"))
+def sample_shadow(img: ee.Image) -> ee.Image:
+    lat = ee.Number(img.get("latitude"))
+
+    lon = ee.Number(img.get("longitude"))
+    precision = ee.Number(img.get("angular_precision"))
     half_precision = precision.divide(2)
 
-    shadow_tile = ee.Image(feat.get("shadow_image"))
+    shadow_tile = img
 
     lat_lon = ee.Image.pixelLonLat()
     img_lon: ee.Image = lat_lon.select("longitude")
@@ -317,10 +319,12 @@ def sample_shadow(feat: ee.ComputedObject) -> ee.Image:
     return shadow_tile.updateMask(cell_active)
 
 
-class InsolationConfig(BaseConfig, total=False):
+class InsolationConfig(TypedDict, total=False):
     shadow_band: str
+    shade_band: str
     insolation_band: str
-    dsm_band: str
+    bh_band: str
+    dem_band: str
     angular_precision: float
     geometry: ee.Geometry
 
@@ -333,9 +337,12 @@ def _builder(
 ):
     config: BuilderConfig = user_config or {}
     shadow_band = config.get("shadow_band", "shadow")
-    insolation_band = config.get("insolation_band", "insolation")
+    shade_band = config.get("shade_band", "shade")
     angular_precision: float = config.get("angular_precision", 1)
-    dsm_band: str = config.get("dsm_band", "dsm")
+    dem_band: str = config.get("dem_band", "dem")
+    bh_band: str = config.get("bh_band", "bh")
+    walls_band: str = config.get("walls_band", "walls")
+    neighborhood_size: int = config.get("neighborhood_size", 200)
 
     geometry: ee.Geometry = config.get("geometry", ee.Geometry.BBox(-180, -90, 180, 90))
 
@@ -354,34 +361,54 @@ def _builder(
     lats = ee.List.sequence(lat_min, lat_max, angular_precision)
 
     def insolation(img: ee.Image):
-        dsm = img.select(dsm_band)
-
-        sun_geometry = lons.map(
-            lambda lon: lats.map(lambda lat: solar_geometry_2(lat, lon, img.date()))
-        ).flatten()
-
-        # shadow_collection = sun_geometry.map(
-        #     lambda f: ee.Feature(f).set("dsm", dsm)
-        # ).map(calculate_shadow)
+        sun_geometry = ee.FeatureCollection(
+            lons.map(
+                lambda lon: lats.map(lambda lat: solar_geometry(lat, lon, img.date()))
+            ).flatten()
+        )
 
         img = img.addBands(
             ee.ImageCollection(
                 sun_geometry.map(
-                    lambda entry: (
-                        ee.Feature(entry)
-                        .set("angular_precision", angular_precision)
-                        .set(
-                            "shadow_image",
-                            calculate_shadow(
-                                ee.Feature(ee.Feature(entry).set("dsm", dsm))
-                            ),
-                        )
+                    lambda entry: ee.Image.cat(
+                        [
+                            hill_shadow(
+                                {
+                                    "azimuth": entry.get("azimuth"),
+                                    "zenith": entry.get("zenith"),
+                                    "bh_band": bh_band,
+                                    "dem_band": dem_band,
+                                    "walls_band": walls_band,
+                                    "neighborhood_size": neighborhood_size,
+                                    "output_band": "shadow",
+                                }
+                            )(img)
+                            .select("shadow")
+                            .rename(shadow_band),
+                            hillshade(
+                                {
+                                    "azimuth": entry.get("azimuth"),
+                                    "zenith": entry.get("zenith"),
+                                    "bh_band": bh_band,
+                                    "dem_band": dem_band,
+                                    "output_band": "shade",
+                                }
+                            )(img)
+                            .select("shade")
+                            .rename(shade_band),
+                        ]
+                    ).set(
+                        {
+                            "latitude": entry.get("latitude"),
+                            "longitude": entry.get("longitude"),
+                            "angular_precision": angular_precision,
+                        }
                     )
-                ).map(sample_shadow)
+                )
             )
-            .first()
+            .map(sample_shadow)
+            .mosaic()
             .unmask(0)
-            .rename(shadow_band)
         )
 
         return img

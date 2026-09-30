@@ -1,10 +1,15 @@
+import math
+
 import ee
 
-from .config import BaseConfig, calculate_shadow
+from .config import BaseConfig
+from .hill_shadow import hill_shadow
 
 
 class SkyViewFactorConfig(BaseConfig, total=False):
-    dsm_band: str
+    dem_band: str
+    bh_band: str
+    neighborhood_size: int
     num_directions: int
     num_elevations: int
 
@@ -18,9 +23,12 @@ def _builder(
 
     config: BuilderConfig = user_config or {}
     svf_band = config.get("output_band", "svf")
-    dsm_band: str = config.get("dsm_band", "dsm")
+    dem_band: str = config.get("dem_band", "dem")
+    bh_band: str = config.get("bh_band", "bh")
+    walls_band: str = config.get("walls_band", "walls")
     num_directions: int = config.get("num_directions", 16)
     num_elevations: int = config.get("num_elevations", 8)
+    neighborhood_size: int = config.get("neighborhood_size", 200)
 
     az_step = ee.Number(360 / num_directions)
     azimuths = ee.List.sequence(0, num_directions - 1).map(
@@ -32,27 +40,43 @@ def _builder(
         lambda value: ee.Number(value).multiply(ze_step) if num_elevations > 1 else 0
     )
 
-    sun_positions = azimuths.map(
-        lambda az: zeniths.map(
-            lambda ze: ee.Feature(None, {"azimuth": az, "zenith": ze})
-        )
-    ).flatten()
+    sun_positions = ee.FeatureCollection(
+        azimuths.map(
+            lambda az: zeniths.map(
+                lambda ze: ee.Feature(None, {"azimuth": az, "zenith": ze})
+            )
+        ).flatten()
+    )
 
     def sky_view_factor(img: ee.Image):
-        dsm = img.select(dsm_band)
-
-        shadow_collection = ee.ImageCollection.fromImages(
-            sun_positions.map(lambda entry: ee.Feature(entry).set("dsm", dsm)).map(
-                calculate_shadow
+        shadow_collection = ee.ImageCollection(
+            sun_positions.map(
+                lambda entry: hill_shadow(
+                    {
+                        "azimuth": entry.get("azimuth"),
+                        "zenith": entry.get("zenith"),
+                        "bh_band": bh_band,
+                        "dem_band": dem_band,
+                        "walls_band": walls_band,
+                        "neighborhood_size": neighborhood_size,
+                        "output_band": "shadow",
+                    }
+                )(
+                    img
+                ).set(
+                    "w", ee.Number(entry.get("zenith")).multiply(math.pi / 180.0).cos()
+                )
             )
         )
 
         img = img.addBands(
             shadow_collection.map(
-                lambda img: ee.Image(img).multiply(ee.Number(img.get("weight")))
+                lambda img: ee.Image(img.select("shadow")).multiply(
+                    ee.Number(img.get("w"))
+                )
             )
             .sum()
-            .divide(ee.Number(shadow_collection.aggregate_sum("weight")))
+            .divide(ee.Number(shadow_collection.aggregate_sum("w")))
             .rename(svf_band)
         )
 

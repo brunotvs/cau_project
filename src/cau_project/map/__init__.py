@@ -7,7 +7,9 @@ import geemap
 MinMaxStrategy = Callable[[ee.Image, list[str]], dict[str, Any]]
 
 
-def arbitrary_min_max(min_val: float, max_val: float) -> MinMaxStrategy:
+def arbitrary_min_max(
+    min_val: float | list[float], max_val: float | list[float]
+) -> MinMaxStrategy:
     def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
         return {"min": min_val, "max": max_val}
 
@@ -30,6 +32,54 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
             .get(b)
             for b in bands
         ]
+        maxes = [
+            img.select(b)
+            .reduceRegion(
+                reducer=ee.Reducer.max(),
+                geometry=region,
+                bestEffort=True,
+                scale=30,
+                tileScale=4,
+            )
+            .get(b)
+            for b in bands
+        ]
+
+        return {"min": mins, "max": maxes}
+
+    return strategy
+
+
+def absolute_min_arbitrary_max(
+    maxes: float | list[float], region: ee.Geometry, scale: int = 1
+) -> MinMaxStrategy:
+    """Strategy: Computes the absolute min and max of the image using EE reducers."""
+
+    def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
+        mins = [
+            img.select(b)
+            .reduceRegion(
+                reducer=ee.Reducer.min(),
+                geometry=region,
+                bestEffort=True,
+                scale=scale,
+                tileScale=4,
+            )
+            .get(b)
+            for b in bands
+        ]
+
+        return {"min": mins, "max": maxes}
+
+    return strategy
+
+
+def arbitrary_min_absolute_max(
+    mins: float | list[float], region: ee.Geometry, scale: int = 1
+) -> MinMaxStrategy:
+    """Strategy: Computes the absolute min and max of the image using EE reducers."""
+
+    def strategy(img: ee.Image, bands: list[str]) -> dict[str, Any]:
         maxes = [
             img.select(b)
             .reduceRegion(

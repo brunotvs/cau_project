@@ -1,6 +1,3 @@
-import ee
-
-
 rgs = {
     "type": "FeatureCollection",
     "name": "Rio Grande Da Serra",

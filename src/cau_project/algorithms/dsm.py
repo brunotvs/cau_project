@@ -23,7 +23,7 @@ def _builder(
         dem = img.select(dem_band)
         bh = img.select(bh_band).unmask(0)
 
-        dsm_img = dem.add(bh).rename(output_band)
+        dsm_img = bh.add(dem).rename(output_band)
         return img.addBands(dsm_img)
 
     return dsm

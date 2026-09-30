@@ -22,11 +22,10 @@ def _builder(
     def building_heights(img: ee.Image) -> ee.Image:
         img_year = img.date().getRange("year")
 
-        mosaic: ee.Image = (
-            ee.ImageCollection("GOOGLE/Research/open-buildings-temporal/v1")
-            .filterDate(img_year)
-            .mosaic()
-        )
+        col = ee.ImageCollection("GOOGLE/Research/open-buildings-temporal/v1")
+        proj = col.first().projection()
+
+        mosaic: ee.Image = col.filterDate(img_year).mosaic().setDefaultProjection(proj)
 
         presence_mask = mosaic.select("building_presence").gte(min_presence)
 

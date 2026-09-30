@@ -186,7 +186,7 @@ qgis_greys = [
     "#525252",
     "#252525",
     "#000000",
-]
+][::-1]
 
 # Topografia, Relevo e Modelos Digitais de Superfície (DSM/DEM)
 qgis_terrain = [
