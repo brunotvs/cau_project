@@ -38,7 +38,7 @@ def absolute_min_max(region: ee.Geometry, scale: int = 1) -> MinMaxStrategy:
                 reducer=ee.Reducer.max(),
                 geometry=region,
                 bestEffort=True,
-                scale=30,
+                scale=scale,
                 tileScale=4,
             )
             .get(b)
@@ -86,7 +86,7 @@ def arbitrary_min_absolute_max(
                 reducer=ee.Reducer.max(),
                 geometry=region,
                 bestEffort=True,
-                scale=30,
+                scale=scale,
                 tileScale=4,
             )
             .get(b)
@@ -109,7 +109,7 @@ def percentile_min_max(
                 reducer=ee.Reducer.min(),
                 geometry=region,
                 bestEffort=True,
-                scale=30,
+                scale=scale,
                 tileScale=4,
             )
             .get(b)
@@ -122,7 +122,7 @@ def percentile_min_max(
                 reducer=ee.Reducer.max(),
                 geometry=region,
                 bestEffort=True,
-                scale=30,
+                scale=scale,
                 tileScale=4,
             )
             .get(b)
@@ -160,7 +160,8 @@ def add_layer_to_map(layer_config: LayerConfig):
     palette = layer_config.get("palette")
     layer_name = layer_config.get("name", f"Layer ({', '.join(bands)})")
 
-    def callback(img: ee.Image, map_obj: geemap.Map):
+    def callback(img: ee.ComputedObject, map_obj: geemap.Map):
+        img = ee.Image(img)
 
         min_max_params = min_max_strategy(img, bands)
 

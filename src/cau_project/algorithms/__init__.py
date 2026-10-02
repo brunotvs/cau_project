@@ -1,4 +1,5 @@
 from .albedo import albedo
+from .emissivity import emissivity
 from .area import area
 from .averaged_building_height import averaged_building_height
 from .building_coverage_ratio import building_coverage_ratio
@@ -21,6 +22,7 @@ from .total_irradiance import total_irradiance
 
 __all__ = [
     "albedo",
+    "emissivity",
     "area",
     "averaged_building_height",
     "building_coverage_ratio",
