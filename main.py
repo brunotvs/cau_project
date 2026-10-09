@@ -22,9 +22,6 @@ region = (
 )
 
 region = ee.FeatureCollection(cau_areas.sjc)
-# south_america = ee.Geometry.Rectangle([-92, -56, -34, 13], geodesic=False)
-# africa = ee.Geometry.Rectangle([-26, -35, 52, 38], geodesic=False)
-# region = ee.FeatureCollection([ee.Feature(south_america), ee.Feature(africa)])
 
 Map.add_layer(
     ee_object=region.style(fillColor="0000", color="000F", width=5.0),
@@ -46,7 +43,7 @@ dates_list = ee.List.sequence(0, n_dates).map(
     lambda d: start_date.advance(ee.Number(d).multiply(step_size), step_unit)
 )
 
-dates_list = ee.List([start_date])
+dates_list = ee.List([ee.Date("2023-12-23T16:00:00-03:00")])
 
 
 def create_empty_image(current_date):
@@ -60,171 +57,34 @@ def create_empty_image(current_date):
     )
 
 
-num_directions = 3
-num_elevations = 3  # num_directions // 4
 (
     ee.ImageCollection(dates_list.map(create_empty_image))
     .filterBounds(region)
-    .map(cau_algorithms.dem())
-    .map(cau_algorithms.building_height())
-    .map(cau_algorithms.dsm())
-    .map(cau_algorithms.walls({"threshold": 3}))
-    .map(
-        cau_algorithms.svf(
-            {
-                "num_directions": num_directions,
-                "num_elevations": num_elevations,
-            }
-        )
-    )
-    .map(cau_algorithms.albedo())
-    # .map(cau_algorithms.ndvi())
-    # .map(
-    #     cau_algorithms.ruggedness(
-    #         {"height_band": "dsm", "radius": 45, "radius_units": "meters"}
-    #     )
-    # )
-    # .map(cau_algorithms.lst())
-    # .map(cau_algorithms.averaged_building_height())
-    # .map(cau_algorithms.building_coverage_ratio())
-    # .map(cau_algorithms.building_volume_density())
-    # .map(cau_algorithms.area())
-    .map(
-        cau_algorithms.insolation(
-            {"angular_precision": 1, "geometry": region.geometry()}
-        )
-    )
-    .map(cau_algorithms.solar_power({"zenith": 0}))
-    .map(cau_algorithms.direct_irradiance())
-    .map(cau_algorithms.diffuse_irradiance())
-    .map(cau_algorithms.reflected_irradiance())
-    .map(cau_algorithms.total_irradiance())
+    .map(cau_algorithms.urban_area())
+    .map(cau_algorithms.lst())
+    .map(cau_algorithms.heat_island_intensity({"geometry": region.geometry()}))
     .map(lambda img: img.clip(region))
     .first()
     .aside(
         cau_map.add_layer_to_map(
             {
-                "band": "shadow",
-                "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
-                "palette": cau_palettes.qgis_greys,
+                "band": "heat_island_intensity",
+                "palette": cau_palettes.qgis_ylorrd,
+                "min_max_strategy": cau_map.arbitrary_min_max(-5, 15),
             }
         ),
         Map,
     )
     .aside(
-        cau_map.add_layer_to_map(
+        lambda img: Map.add_colorbar(
             {
-                "band": "shade",
-                "min_max_strategy": cau_map.arbitrary_min_max(0, 1),
-                "palette": cau_palettes.qgis_greys,
+                "bands": "heat_island_intensity",
+                "palette": cau_palettes.qgis_ylorrd,
+                "min": -5,
+                "max": 15,
             }
-        ),
-        Map,
-    )
-    .aside(
-        lambda img: Map.add_layer(
-            ee.Image(img).visualize(
-                bands="direct_irradiance",
-                min=0,
-                max=65,
-                palette=cau_palettes.qgis_reds,
-                forceRgbOutput=True,
-            )
         )
     )
-    .aside(
-        lambda img: print(
-            ee.Image(img.select("direct_irradiance"))
-            .reduceRegion(
-                reducer=ee.Reducer.minMax(),
-                geometry=region.geometry(),
-                scale=4,
-                bestEffort=True,
-            )
-            .getInfo()
-        )
-    )
-    .aside(
-        cau_map.add_layer_to_map(
-            {
-                "band": "direct_irradiance",
-                "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-                "palette": cau_palettes.qgis_reds,
-            }
-        ),
-        Map,
-    )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "diffuse_irradiance",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": cau_palettes.qgis_reds,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "reflected_irradiance",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": cau_palettes.qgis_reds,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "total_irradiance",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": cau_palettes.qgis_reds,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "ghi",
-    #             "min_max_strategy": cau_map.arbitrary_min_max(0, 1100),
-    #             "palette": cau_palettes.qgis_ylorrd,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "dni",
-    #             "min_max_strategy": cau_map.arbitrary_min_max(0, 1100),
-    #             "palette": cau_palettes.qgis_ylorrd,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "dhi",
-    #             "min_max_strategy": cau_map.arbitrary_min_max(0, 1100),
-    #             "palette": cau_palettes.qgis_ylorrd,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(
-    #     cau_map.add_layer_to_map(
-    #         {
-    #             "band": "area",
-    #             "min_max_strategy": cau_map.absolute_min_max(region.geometry()),
-    #             "palette": cau_palettes.qgis_terrain,
-    #         }
-    #     ),
-    #     Map,
-    # )
-    # .aside(func2)
 )
 
 
