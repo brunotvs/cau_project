@@ -34,6 +34,27 @@ temperature = (
     ],
 )
 
+ndvi = [
+    # água (-1 a 0)
+    "#08306b",
+    "#08519c",
+    "#2171b5",
+    "#4292c6",
+    "#6baed6",
+    "#9ecae1",
+    "#c6dbef",
+    "#deebf7",
+    # solo → vegetação (0 a 1)
+    "#ce7e45",
+    "#f1b555",
+    "#fcd163",
+    "#99b718",
+    "#66a000",
+    "#3e8601",
+    "#056201",
+    "#011d01",
+]
+
 gray = ["black", "white"]
 
 # Perceptualmente Uniformes (Padrão do QGIS)

@@ -3,6 +3,17 @@ import ee
 from cau_project.algorithms.config import BaseConfig
 
 
+def mask_s2_clouds(image: ee.Image) -> ee.Image:
+    qa = image.select("QA60")
+
+    cloud_bit_mask = 1 << 10
+    cirrus_bit_mask = 1 << 11
+
+    mask = qa.bitwiseAnd(cloud_bit_mask).eq(0).And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
+
+    return image.updateMask(mask)
+
+
 class NDVIConfig(BaseConfig, total=False):
     max_cloud_percentage: float
 
@@ -18,20 +29,6 @@ def _builder(
     max_cloud_percentage: float = config.get("max_cloud_percentage", 20.0)
 
     collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
-
-    def mask_s2_clouds(image: ee.Image) -> ee.Image:
-        qa = image.select("QA60")
-
-        cloud_bit_mask = 1 << 10
-        cirrus_bit_mask = 1 << 11
-
-        mask = (
-            qa.bitwiseAnd(cloud_bit_mask)
-            .eq(0)
-            .And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
-        )
-
-        return image.updateMask(mask)
 
     def ndvi(img: ee.Image) -> ee.Image:
         img_day = img.date().getRange("year")
