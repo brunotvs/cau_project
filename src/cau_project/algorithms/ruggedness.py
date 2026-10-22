@@ -20,25 +20,22 @@ def _builder(
     config: BuilderConfig = user_config or {}
     output_band = config.get("output_band", "ruggedness")
     height_band = config.get("height_band", "dem")
-    radius = config.get("radius", 1)
-    radius_units = config.get("radius_units", "pixels")
+    radius = config.get("radius", 50)
+    radius_units: Literal["meters", "pixels"] = config.get("radius_units", "meters")
 
     empty_image = ee.Image()
 
     # Riley et al., 1999
     def ruggedness(img: ee.Image = empty_image):
-        kernel = ee.Kernel.square(radius=radius, units=radius_units)
+
+        kernel = ee.Kernel.square(radius=radius, units=radius_units, normalize=True)
 
         heights: ee.Image = img.select(height_band)
-        sum_dem = heights.reduceNeighborhood(reducer=ee.Reducer.sum(), kernel=kernel)
+        sum_dem = heights.convolve(kernel=kernel)
 
-        sum_dem_sq = heights.pow(2).reduceNeighborhood(
-            reducer=ee.Reducer.sum(), kernel=kernel
-        )
+        sum_dem_sq = heights.pow(2).convolve(kernel=kernel)
 
-        valid_pixel_count = heights.mask().reduceNeighborhood(
-            reducer=ee.Reducer.sum(), kernel=kernel
-        )
+        valid_pixel_count = heights.mask().convolve(kernel=kernel)
 
         rugg = (
             sum_dem_sq.subtract(heights.multiply(sum_dem).multiply(2))

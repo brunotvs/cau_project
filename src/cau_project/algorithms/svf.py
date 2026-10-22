@@ -30,15 +30,11 @@ def _builder(
     num_elevations: int = config.get("num_elevations", 8)
     neighborhood_size: int = config.get("neighborhood_size", 200)
 
-    az_step = ee.Number(360 / num_directions)
-    azimuths = ee.List.sequence(0, num_directions - 1).map(
-        lambda value: ee.Number(value).multiply(az_step)
-    )
+    azimuths = ee.List.sequence(0, 360, count=num_directions)
 
-    ze_step = ee.Number(90 / (num_elevations - 1))
-    zeniths = ee.List.sequence(0, num_elevations - 1).map(
-        lambda value: ee.Number(value).multiply(ze_step) if num_elevations > 1 else 0
-    )
+    zeniths = ee.List.sequence(0, 90, count=num_elevations)
+    if num_elevations < 2:
+        zeniths = ee.List([45])
 
     sun_positions = ee.FeatureCollection(
         azimuths.map(

@@ -9,6 +9,7 @@ from .dem import dem
 from .diffuse_irradiance import diffuse_irradiance
 from .direct_irradiance import direct_irradiance
 from .dsm import dsm
+from .emissivity import emissivity
 from .hill_shadow import hill_shadow
 from .insolation import insolation
 from .lst import lst
@@ -18,6 +19,8 @@ from .ruggedness import ruggedness
 from .solar_power import solar_power
 from .svf import svf
 from .total_irradiance import total_irradiance
+from .urban_area import urban_area
+from .urban_heat_island_intensity import heat_island_intensity
 
 __all__ = [
     "albedo",
@@ -30,6 +33,8 @@ __all__ = [
     "diffuse_irradiance",
     "direct_irradiance",
     "dsm",
+    "emissivity",
+    "heat_island_intensity",
     "hill_shadow",
     "insolation",
     "lst",
@@ -39,5 +44,6 @@ __all__ = [
     "solar_power",
     "svf",
     "total_irradiance",
+    "urban_area",
     "walls",
 ]

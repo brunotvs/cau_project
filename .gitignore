@@ -18,3 +18,9 @@ output/
 
 #topodata
 .topodata/
+
+# export
+.export/
+
+# ee_cache
+.ee_cache
