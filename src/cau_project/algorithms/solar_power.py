@@ -4,12 +4,40 @@ from typing import Required, TypedDict
 import ee
 
 
+def solar_altitude(date: ee.Date) -> ee.Number:
+    ll = ee.Image.pixelLonLat()
+    lon = ll.select("longitude").multiply(math.pi / 180)
+    lat = ll.select("latitude").multiply(math.pi / 180)
+
+    doy = ee.Number(date.getRelative("day", "year")).add(1)
+    hours = ee.Number(date.get("hour")).add(ee.Number(date.get("minute")).divide(60))
+
+    gamma = doy.subtract(1).multiply(2 * math.pi / 365)
+    decl = (
+        ee.Number(0.006918)
+        .subtract(gamma.cos().multiply(0.399912))
+        .add(gamma.sin().multiply(0.070257))
+        .subtract(gamma.multiply(2).cos().multiply(0.006758))
+        .add(gamma.multiply(2).sin().multiply(0.000907))
+    )
+
+    solar_hour = lon.multiply(12 / math.pi).add(hours)
+    ha = solar_hour.subtract(12).multiply(math.pi / 12)
+
+    sin_alt = (
+        lat.sin()
+        .multiply(decl.sin())
+        .add(lat.cos().multiply(decl.cos()).multiply(ha.cos()))
+    )
+    return sin_alt.asin().divide(math.pi / 180)
+
+
 def erbs_dhi(
     ghi: ee.Image, solar_elevation: ee.Number, day_of_year: ee.Number
 ) -> ee.Image:
     i0 = ee.Number(1361).multiply(
-        ee.Number(1 + 0.033).multiply(
-            day_of_year.multiply(2 * math.pi).divide(365).cos()
+        ee.Number(1).add(
+            ee.Number(0.033).multiply(day_of_year.multiply(2 * math.pi / 365).cos())
         )
     )
     kt = ghi.divide(solar_elevation.multiply(math.pi / 180).sin().multiply(i0)).clamp(
@@ -47,14 +75,14 @@ def _builder(
     ghi_band = config.get("ghi_band", "ghi")
     dni_band = config.get("dni_band", "dni")
     dhi_band = config.get("dhi_band", "dhi")
-    zenith = config.get("zenith")
 
     def solar_power(img: ee.Image):
+        date = img.date()
 
-        solar_elevation = ee.Number(90).subtract(zenith)
-
-        hour = img.date().getRange("hour")
-        day_of_year = img.date().getRelative("day", "year")
+        hour = date.getRange("hour").start()
+        mid = hour.advance(30, "minutes")
+        s_alt = solar_altitude(mid)
+        day_of_year = date.getRelative("day", "year").add(1)
 
         ghi: ee.Image = (
             ee.ImageCollection("ECMWF/ERA5_LAND/HOURLY")
@@ -66,11 +94,11 @@ def _builder(
             .divide(3600)
         ).rename(ghi_band)
 
-        dhi = erbs_dhi(ghi, solar_elevation, day_of_year).rename(dhi_band)
+        dhi = erbs_dhi(ghi, s_alt, day_of_year).rename(dhi_band)
 
         dni = (
             ghi.subtract(dhi)
-            .divide(solar_elevation.multiply(math.pi / 180).sin())
+            .divide(s_alt.multiply(math.pi / 180).sin())
             .rename(dni_band)
         )
 
