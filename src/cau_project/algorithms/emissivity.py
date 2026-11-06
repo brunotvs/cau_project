@@ -3,56 +3,72 @@ import ee
 from cau_project.algorithms.config import BaseConfig
 
 
-def mask_clouds_and_shadows(image: ee.Image) -> ee.Image:
-    qa = image.select("QA_PIXEL")
-    dilated_cloud = qa.bitwiseAnd(1 << 1).eq(0)
-    cirrus_mask = qa.bitwiseAnd(1 << 2).eq(0)
-    cloud_shadow_mask = qa.bitwiseAnd(1 << 3).eq(0)
-    snow_mask = qa.bitwiseAnd(1 << 4).eq(0)
-    cloud_mask = qa.bitwiseAnd(1 << 5).eq(0)
-
-    mask = (
-        dilated_cloud.And(cirrus_mask)
-        .And(cloud_shadow_mask)
-        .And(snow_mask)
-        .And(cloud_mask)
-    )
-    return image.updateMask(mask)
-
-
-def scale(image: ee.Image) -> ee.Image:
-    emis = image.multiply(0.0001).add(0)
-    return emis
-
-
 class EmissivityConfig(BaseConfig, total=False):
-    pass
+    ndvi_band: str
+    max_cloud_percentage: float
 
 
 type BuilderConfig = EmissivityConfig
 
 
+def mask_s2_scl(image: ee.Image) -> ee.Image:
+    scl = image.select("SCL")
+    bad = (
+        scl.eq(0)
+        .Or(scl.eq(1))
+        .Or(scl.eq(3))
+        .Or(scl.eq(8))
+        .Or(scl.eq(9))
+        .Or(scl.eq(10))
+        .Or(scl.eq(11))
+    )
+    return image.updateMask(bad.Not())
+
+
 def _builder(user_config: BuilderConfig | None = None):
     config: BuilderConfig = user_config or {}
     output_band: str = config.get("output_band", "emissivity")
+    ndvi_band: str = config.get("ndvi_band", "ndvi")
+    max_cloud_percentage: float = config.get("max_cloud_percentage", 20.0)
 
-    l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-    l9 = ee.ImageCollection("LANDSAT/LC09/C02/T1_L2")
-    landsat_collection = l8.merge(l9)
+    EPS_SOIL = 0.966
+    EPS_VEG = 0.973
+    EPS_WATER = 0.991
+    NDVI_SOIL = 0.2
+    NDVI_VEG = 0.5
+    DELTA_EPS = 0.01
 
     def emissivity(img: ee.Image) -> ee.Image:
-        img_day = img.date().getRange("year")
+        ndvi = img.select(ndvi_band)
 
-        lst_image: ee.Image = (
-            landsat_collection.filterDate(img_day)
-            .map(mask_clouds_and_shadows)
-            .map(lambda image: image.select("ST_EMIS"))
-            .map(scale)
-            .median()
+        s2 = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterDate(img.date().getRange("year"))
+            .filterBounds(img.geometry())
+            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_percentage))
+            .map(mask_s2_scl)
+        )
+        s2_median = s2.median()
+
+        # Água: MNDWI da composição (evita mediana de banda categórica)
+        water = s2_median.normalizedDifference(["B3", "B11"]).gt(0)
+
+        pv = ndvi.subtract(NDVI_SOIL).divide(NDVI_VEG - NDVI_SOIL).clamp(0, 1).pow(2)
+
+        eps_mixed = (
+            pv.multiply(EPS_VEG)
+            .add(pv.multiply(-1).add(1).multiply(EPS_SOIL))
+            .add(pv.multiply(pv.multiply(-1).add(1)).multiply(4 * DELTA_EPS))
+        )
+
+        eps = (
+            eps_mixed.where(ndvi.lt(NDVI_SOIL), EPS_SOIL)
+            .where(ndvi.gt(NDVI_VEG), EPS_VEG)
+            .where(water, EPS_WATER)
             .rename(output_band)
         )
 
-        return img.addBands(lst_image)
+        return img.addBands(eps)
 
     return emissivity
 
